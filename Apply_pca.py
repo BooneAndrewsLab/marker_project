@@ -32,7 +32,7 @@ if __name__ == '__main__':
 
     # Concatenate all plates
     df = pd.DataFrame(columns=pd.read_csv(plates[0], low_memory=False).columns)
-    for i in range(1, len(plates)):
+    for i in range(len(plates)):
         print('Reading plate %s' % plates[i])
         df_plate = pd.read_csv(plates[i], low_memory=False)
         # Change plate name
