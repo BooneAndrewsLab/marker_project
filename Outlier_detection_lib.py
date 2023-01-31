@@ -386,7 +386,7 @@ def calculate_auc(df, neg, pos):
         """
 
     nc = df[df['Strain ID'].isin(neg)]['Penetrance'].values
-    pc = df[df['Strain ID'].isin(pos)]['Penetrance'].values
+    pc = df[df['Strain ID'].str.lower().isin([p.lower() for p in pos])]['Penetrance'].values
 
     y_score = np.append(nc, pc)
     y_true = np.append(np.repeat(0, len(nc)), np.repeat(1, len(pc)))
