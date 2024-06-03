@@ -22,6 +22,8 @@ parser.add_argument('-a', '--remove_areashape', default=False, action='store_tru
                     help='Remove AreaShape features')
 parser.add_argument('-t', '--test_set_based', default=False, action='store_true',
                     help='Choose number of clusters based on test set BIC')
+parser.add_argument('-b', '--bic', default=False, action='store_true',
+                    help='Run the script up to BIC calculation only.')
 args = parser.parse_args()
 
 
@@ -171,54 +173,55 @@ if __name__ == '__main__':
         df_.insert(1, 'Cluster', ['%s-%d' % (cellcycle, c) for c in cluster_labels])
         df_clusters = pd.concat([df_clusters, df_]).reset_index(drop=True)
 
-    # Combine all info on single cell level
-    os.chdir(output_folder)
-    clusters = np.sort(df_clusters['Cluster'].unique())
-    df_cells = df_cells.merge(df_clusters, how='outer', on='cell_id')
-    df_cells = df_data[['cell_id', 'ORF', 'Name', 'Allele', 'Strain ID']].merge(df_cells, on='cell_id')
-    df_cells.to_csv('Single_cell_info.csv', index=False)
+    if not args.bic:
+        # Combine all info on single cell level
+        os.chdir(output_folder)
+        clusters = np.sort(df_clusters['Cluster'].unique())
+        df_cells = df_cells.merge(df_clusters, how='outer', on='cell_id')
+        df_cells = df_data[['cell_id', 'ORF', 'Name', 'Allele', 'Strain ID']].merge(df_cells, on='cell_id')
+        df_cells.to_csv('Single_cell_info.csv', index=False)
 
-    # Combine all info on strain level
-    cluster_features = ['Cluster_%s' % c for c in clusters]
-    columns = ['ORF', 'Name', 'Allele', 'Strain ID', 'Num_cells', 'Num_cells_outliers', 'Penetrance']
-    columns += cc_classes + cluster_features
+        # Combine all info on strain level
+        cluster_features = ['Cluster_%s' % c for c in clusters]
+        columns = ['ORF', 'Name', 'Allele', 'Strain ID', 'Num_cells', 'Num_cells_outliers', 'Penetrance']
+        columns += cc_classes + cluster_features
 
-    df_strain_profile = pd.DataFrame(columns=columns)
-    this_row = 0
-    for s in df_cells['Strain ID'].unique():
-        df_strain = df_cells[df_cells['Strain ID'] == s]
-        line = list(df_strain[['ORF', 'Name', 'Allele', 'Strain ID']].values[0])
-        num_cells = df_strain.shape[0]
-        line.append(num_cells)
-        num_cells_outlier = df_strain[df_strain['Is_outlier'] == 1].shape[0]
-        line.append(num_cells_outlier)
-        line.append(num_cells_outlier / num_cells)
-        for c in cc_classes:
-            line.append(df_strain[df_strain['Prediction'] == c].shape[0] / num_cells)
+        df_strain_profile = pd.DataFrame(columns=columns)
+        this_row = 0
+        for s in df_cells['Strain ID'].unique():
+            df_strain = df_cells[df_cells['Strain ID'] == s]
+            line = list(df_strain[['ORF', 'Name', 'Allele', 'Strain ID']].values[0])
+            num_cells = df_strain.shape[0]
+            line.append(num_cells)
+            num_cells_outlier = df_strain[df_strain['Is_outlier'] == 1].shape[0]
+            line.append(num_cells_outlier)
+            line.append(num_cells_outlier / num_cells)
+            for c in cc_classes:
+                line.append(df_strain[df_strain['Prediction'] == c].shape[0] / num_cells)
 
-        if num_cells_outlier:
-            for c in clusters:
-                line.append(df_strain[(df_strain['Cluster'] == c) &
-                                      (df_strain['Is_outlier'] == 1)].shape[0] / num_cells_outlier)
-        else:
-            add_empty = np.empty(len(clusters))
-            add_empty.fill(np.nan)
-            line += list(add_empty)
+            if num_cells_outlier:
+                for c in clusters:
+                    line.append(df_strain[(df_strain['Cluster'] == c) &
+                                          (df_strain['Is_outlier'] == 1)].shape[0] / num_cells_outlier)
+            else:
+                add_empty = np.empty(len(clusters))
+                add_empty.fill(np.nan)
+                line += list(add_empty)
 
-        df_strain_profile.loc[this_row, ] = line
-        this_row += 1
-    df_strain_profile.to_csv('Strain_profile.csv', index=False)
-    hierarchical_clustering(df_strain_profile, cluster_features, 'Strain_clustermap.png')
+            df_strain_profile.loc[this_row, ] = line
+            this_row += 1
+        df_strain_profile.to_csv('Strain_profile.csv', index=False)
+        hierarchical_clustering(df_strain_profile, cluster_features, 'Strain_clustermap.png')
 
-    # Plot distributions
-    plot_distributions(df_strain_profile, cc_classes,
-                       '', 'Cell cycle classifier and garbage collector predictions',
-                       'Cellcycle_distributions.png')
-    plot_distributions(df_strain_profile, ['Penetrance'],
-                       '', 'Penetrance values',
-                       'Penetrance_distribution.png')
+        # Plot distributions
+        plot_distributions(df_strain_profile, cc_classes,
+                           '', 'Cell cycle classifier and garbage collector predictions',
+                           'Cellcycle_distributions.png')
+        plot_distributions(df_strain_profile, ['Penetrance'],
+                           '', 'Penetrance values',
+                           'Penetrance_distribution.png')
 
-    # Combine UMAP plots
-    combine_umap_plots(output_folder)
-    if args.combine_ma:
-        combine_umap_plots_ma(output_folder, df_cc_ma)
+        # Combine UMAP plots
+        combine_umap_plots(output_folder)
+        if args.combine_ma:
+            combine_umap_plots_ma(output_folder, df_cc_ma)

@@ -497,6 +497,10 @@ def automated_clustering_gmm(df, features, output, test_set_based, sample=0):
     best_clust_bic_index = bic_minima - i + 1
     best_clust_bic = n_clusters[best_clust_bic_index]
 
+    # Save BIC values
+    df_bic = pd.DataFrame({"Num_clusters": n_clusters, "BIC mean": bic_training_mean})
+    df_bic.to_csv('%s_BIC_values.csv' % output, index=False)
+
     # Plot BIC and AMI between clusterings
     fig, ax = plt.subplots(figsize=(10, 6))
     sns.set(font_scale=1.25)
