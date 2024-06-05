@@ -116,8 +116,10 @@ if __name__ == '__main__':
         df_cellcycle = pd.concat([df_cellcycle,
                                   pd.read_csv(cellcycle_file, low_memory=False)[['cell_id', 'Prediction']]])
         df_cellcycle = df_cellcycle.reset_index(drop=True)
-    df_cc_ma = pd.DataFrame()
+
+
     if args.combine_ma:
+        df_cc_ma = pd.DataFrame()
         df_cc_ma = df_cellcycle[df_cellcycle['Prediction'].isin(['MA phase', 'MA-single'])].reset_index(drop=True)
         df_cellcycle['Prediction'] = ['MA phase' if p == 'MA-single' else p for p in df_cellcycle['Prediction']]
 
@@ -154,9 +156,10 @@ if __name__ == '__main__':
                      'ImageNumber', 'ObjectNumber']
 
     # Cell cycle phases
-    cc_classes = ['G1 phase', 'MA phase', 'MA-single', 'S/G2 phase', 'T phase']
-    if args.combine_ma:
-        cc_classes = ['G1 phase', 'MA phase', 'S/G2 phase', 'T phase']
+    cc_classes = ['normal_cells']
+    cc_phases = ['G1 phase', 'MA phase', 'MA-single', 'S/G2 phase', 'T phase']
+    # if args.combine_ma:
+    #     cc_classes = ['G1 phase', 'MA phase', 'S/G2 phase', 'T phase']
 
     # Combine outlier and cell cycle info
     df_outliers.insert(1, 'Is_outlier', True)
@@ -181,7 +184,7 @@ if __name__ == '__main__':
     for cellcycle in cc_classes:
         os.chdir(output_folder)
         cluster_cells = df_cells[(df_cells['Is_outlier'] == 1) &
-                                 (df_cells['Prediction'] == cellcycle)]['cell_id']
+                                 (df_cells['Prediction'].isin(cc_phases))]['cell_id']
         df = df_data[df_data['cell_id'].isin(cluster_cells)].reset_index(drop=True)
         cellcycle = cellcycle.replace(' ', '').replace('-', '').replace('/', '')
         cluster_labels = cluster_cellcycle(df, cell_features, features, cellcycle, args.phenotype_file,
