@@ -24,6 +24,9 @@ parser.add_argument('-t', '--test_set_based', default=False, action='store_true'
                     help='Choose number of clusters based on test set BIC')
 parser.add_argument('-b', '--bic', default=False, action='store_true',
                     help='Run the script up to BIC calculation only.')
+parser.add_argument('-n', '--num_clusters', default=0, type=int,
+                    help='Specify a fixed number of clusters to generate. Adding this parameter skips the BIC step.'
+                         'Value must be greater than 0.')
 args = parser.parse_args()
 
 
@@ -45,14 +48,20 @@ def cluster_cellcycle(df, cell_features, data_features, cellcycle_stage, phenoty
     os.makedirs(output, exist_ok=True)
     os.chdir(output)
 
-    k_gmm = automated_clustering_gmm(df, data_features, '%s_clusters' % cellcycle_stage, test_set_based, sample)
-    model = GaussianMixture(n_components=k_gmm, covariance_type='full', max_iter=1000)
-    model.fit(df[data_features].values)
+    if not args.num_clusters:
+        k_gmm = automated_clustering_gmm(df, data_features, '%s_clusters' % cellcycle_stage, test_set_based, sample)
+    else:
+        k_gmm = args.num_clusters
+    if not args.bic:
+        model = GaussianMixture(n_components=k_gmm, covariance_type='full', max_iter=1000)
+        model.fit(df[data_features].values)
 
-    labels = model.predict(df[data_features].values)
-    probs = model.predict_proba(df[data_features].values)
-    clustering_results(labels, probs, df, cell_features, data_features,
-                       '%s_clusters_n%d' % (cellcycle_stage, k_gmm), phenotype_file, True)
+        labels = model.predict(df[data_features].values)
+        probs = model.predict_proba(df[data_features].values)
+        clustering_results(labels, probs, df, cell_features, data_features,
+                           '%s_clusters_n%d' % (cellcycle_stage, k_gmm), phenotype_file, True)
+    else:
+        labels = None
 
     return labels
 
@@ -169,9 +178,11 @@ if __name__ == '__main__':
         cellcycle = cellcycle.replace(' ', '').replace('-', '').replace('/', '')
         cluster_labels = cluster_cellcycle(df, cell_features, features, cellcycle, args.phenotype_file,
                                            args.test_set_based, minn)
-        df_ = pd.DataFrame(df['cell_id'])
-        df_.insert(1, 'Cluster', ['%s-%d' % (cellcycle, c) for c in cluster_labels])
-        df_clusters = pd.concat([df_clusters, df_]).reset_index(drop=True)
+
+        if not args.bic:
+            df_ = pd.DataFrame(df['cell_id'])
+            df_.insert(1, 'Cluster', ['%s-%d' % (cellcycle, c) for c in cluster_labels])
+            df_clusters = pd.concat([df_clusters, df_]).reset_index(drop=True)
 
     if not args.bic:
         # Combine all info on single cell level
